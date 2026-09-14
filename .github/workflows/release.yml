@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+          toolchain: stable-x86_64-pc-windows-gnu
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        id: tauri_build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --bundles nsis
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Pi Desktop ${{ github.ref_name }}
+          body: |
+            ## Pi Desktop ${{ github.ref_name }}
+
+            ### 📦 安装包
+
+            - **Windows x64**: `Pi Desktop_${{ github.ref_name }}_x64-setup.exe`
+
+            ### ✨ 新特性
+
+            - 首个正式版本发布
+            - 基于 Tauri 2 封装的 Pi Coding Agent 桌面应用
+            - 无边框窗口 + 系统托盘
+            - 自动检测并引导安装运行时
+            - Telegram 代理注入
+            - 主题联动（跟随系统深浅色）
+
+            ### 🚀 快速开始
+
+            1. 下载并运行 `Pi Desktop_*_x64-setup.exe`
+            2. 按照安装向导完成安装
+            3. 启动 Pi Desktop，首次运行会自动检测并配置环境
+            4. 开始使用 Pi Coding Agent！
+
+            ### 💡 功能一览
+
+            | 功能 | 说明 |
+            |---|---|
+            | 单实例启动 | 重复启动自动聚焦已有窗口 |
+            | 环境检测+引导 | 缺项显示「去安装」引导 |
+            | 复用已有安装 | 已全局安装直接复用 |
+            | 无边框窗口 | 自绘标题栏，配色跟随系统 |
+            | 打开工作目录 | 一键打开 pi-web 当前工作目录 |
+            | 重启 Pi 服务 | 一键重启 pi-web |
+            | 设置面板 | 关闭行为 / 下载源 / 版本更新 |
+            | Telegram 代理 | 进程级注入，仅 telegram.org 走代理 |
+            | 系统托盘 | 显示/隐藏 / 一键更新组件 |
+            | 固定端口 | 31141，保证 localStorage 持久 |
+
+            ### 📝 完整更新日志
+
+            详见 [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
+          files: |
+            src-tauri/target/x86_64-pc-windows-gnu/release/bundle/nsis/*.exe
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

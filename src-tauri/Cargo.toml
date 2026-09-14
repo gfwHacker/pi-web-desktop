@@ -1,0 +1,28 @@
+[package]
+name = "pi-desktop"
+version = "1.0.0"
+description = "Pi Coding Agent Desktop App"
+authors = ["Pi Desktop"]
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+directories = "5"
+zip = "2"
+tauri-plugin-window-state = "2"
+
+# WebView2 COM 接口：给 pi-web iframe 注入桥脚本（主题同步 / 完整历史弹窗）
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

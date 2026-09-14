@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Pi Desktop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    :root {
+      --tb-bg: #f6f7f9;
+      --tb-fg: #2f3540;
+      --tb-hover: rgba(0,0,0,0.06);
+      --tb-dot: #10a37f;
+      --loader-bg: linear-gradient(160deg, #f6f7f9, #e9ecf2);
+      --loader-fg: #2f3540;
+      --loader-muted: #6b7280;
+      --card-bg: #ffffff;
+      --border: rgba(128,128,150,0.2);
+      --primary: #6c5ce7;
+      --primary-hover: #7c6cf0;
+      --primary-light: #a29bfe;
+      --danger: #e5484d;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --tb-bg: #17181c;
+        --tb-fg: #d8d9de;
+        --tb-hover: rgba(255,255,255,0.09);
+        --tb-dot: #34d399;
+        --loader-bg: linear-gradient(160deg, #17181c, #20222a);
+        --loader-fg: #e8e9ee;
+        --loader-muted: #9aa0aa;
+        --card-bg: #1e2026;
+        --border: rgba(255,255,255,0.1);
+      }
+    }
+    /* ===== pi-web 主题同步（标题栏/加载页/面板颜色与 pi-web 页面顶部一致） =====
+       颜色取自 pi-web 各主题 --bg / --text / --border / --accent，保证视觉无缝衔接 */
+    html[data-shell-theme="light"] {
+      --tb-bg: #ffffff; --tb-fg: #1a1a1a; --tb-hover: rgba(0,0,0,0.06); --tb-dot: #245bce;
+      --loader-bg: linear-gradient(160deg, #ffffff, #f5f5f5); --loader-fg: #1a1a1a;
+      --loader-muted: #5e6673; --card-bg: #f5f5f5;
+      --border: #e0e0e0; --primary: #245bce; --primary-hover: #346de0;
+      --primary-light: #8ab4f8;
+    }
+    html[data-shell-theme="dark"] {
+      --tb-bg: #1a1a1a; --tb-fg: #e8e8e8; --tb-hover: rgba(255,255,255,0.09); --tb-dot: #a4c2f4;
+      --loader-bg: linear-gradient(160deg, #1a1a1a, #242424); --loader-fg: #e8e8e8;
+      --loader-muted: #a4a4a4; --card-bg: #242424;
+      --border: #454545; --primary: #a4c2f4; --primary-hover: #c3d8fa;
+      --primary-light: #c3d8fa;
+    }
+    html[data-shell-theme="mist"] {
+      --tb-bg: #f4f8f7; --tb-fg: #202e2b; --tb-hover: rgba(24,65,50,0.06); --tb-dot: #1e6559;
+      --loader-bg: linear-gradient(160deg, #f4f8f7, #e9f0ee); --loader-fg: #202e2b;
+      --loader-muted: #52685f; --card-bg: #e9f0ee;
+      --border: #afc4ba; --primary: #1e6559; --primary-hover: #267a6b;
+      --primary-light: #6ba394;
+    }
+    html[data-shell-theme="pine"] {
+      --tb-bg: #19201f; --tb-fg: #e6ede8; --tb-hover: rgba(210,236,219,0.09); --tb-dot: #acccb7;
+      --loader-bg: linear-gradient(160deg, #19201f, #212b28); --loader-fg: #e6ede8;
+      --loader-muted: #afc2b5; --card-bg: #212b28;
+      --border: #4a5f52; --primary: #acccb7; --primary-hover: #c5dfce;
+      --primary-light: #c5dfce;
+    }
+    html[data-shell-theme="rose"] {
+      --tb-bg: #fcf7f8; --tb-fg: #34282e; --tb-hover: rgba(89,39,62,0.06); --tb-dot: #914360;
+      --loader-bg: linear-gradient(160deg, #fcf7f8, #f3edef); --loader-fg: #34282e;
+      --loader-muted: #705b65; --card-bg: #f3edef;
+      --border: #cdb5bf; --primary: #914360; --primary-hover: #a85272;
+      --primary-light: #c98aa3;
+    }
+
+    /* ===== 顶部标题栏 ===== */
+    .drag-bar {
+      height: 40px;
+      display: flex;
+      align-items: stretch;
+      background: var(--tb-bg);
+      color: var(--tb-fg);
+      position: relative;
+      z-index: 10;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+    }
+    .drag-title {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: var(--tb-fg);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .drag-title .drag-icon { width: 18px; height: 18px; background: url('icon.png') no-repeat center/contain; flex: none; opacity: 0.95; }
+    .win-btns { display: flex; height: 100%; }
+    .win-btn {
+      width: 44px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--tb-fg);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .win-btn:hover { background: var(--tb-hover); }
+    .win-btn.close:hover { background: #e81123; color: #fff; }
+    .win-btn svg { width: 14px; height: 14px; }
+    .tool-btn { width: 40px; color: var(--tb-fg); opacity: 0.85; }
+    .tool-btn:hover { opacity: 1; }
+
+    /* ===== 加载视图 ===== */
+    .main {
+      height: calc(100% - 40px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 0 24px;
+      background: var(--loader-bg);
+      color: var(--loader-fg);
+    }
+    .pi-icon {
+      width: 84px; height: 84px;
+      background: url('icon.png') no-repeat center/contain;
+      margin-bottom: 14px;
+    }
+    .app-name { font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+    .app-subtitle { font-size: 12.5px; color: var(--loader-muted); margin-top: 4px; margin-bottom: 26px; }
+
+    .panel { width: 100%; max-width: 480px; text-align: center; }
+    .status-text { font-size: 14px; line-height: 1.8; }
+    .status-hint { font-size: 12.5px; color: var(--loader-muted); line-height: 1.7; margin-top: 6px; }
+    .status-err { color: var(--danger); }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(120,120,140,0.2);
+      border-top-color: var(--loader-fg);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 6px auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn {
+      margin-top: 18px;
+      padding: 10px 28px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--primary); color: #fff;
+      transition: all 0.18s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(108,92,231,0.35); }
+    .btn.secondary {
+      background: var(--tb-hover); color: var(--loader-fg);
+      border: 1px solid var(--border); margin-left: 10px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .hidden { display: none !important; }
+
+    .foot { position: absolute; bottom: 14px; font-size: 11px; color: var(--loader-muted); opacity: 0.7; }
+
+    /* ===== 进度条 ===== */
+    .progress-wrap {
+      width: 100%; max-width: 420px;
+      margin: 16px auto 6px;
+      text-align: left;
+    }
+    .progress-bar {
+      width: 100%; height: 6px;
+      background: var(--tb-hover);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--loader-muted);
+      margin-top: 6px;
+    }
+    .progress-source {
+      font-size: 11.5px;
+      color: var(--tb-dot);
+      margin-top: 4px;
+    }
+
+    /* ===== pi-web iframe ===== */
+    #frame { position: fixed; top: 40px; left: 0; right: 0; bottom: 0; width: 100%; height: calc(100% - 40px); border: none; background: #fff; }
+
+    /* ===== Toast ===== */
+    #toast {
+      position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+      background: rgba(20,22,28,0.92); color: #fff;
+      padding: 9px 18px; border-radius: 8px; font-size: 12.5px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      z-index: 9999; display: none; max-width: 80%;
+    }
+    #toast.show { display: block; animation: fadein 0.18s; }
+    @keyframes fadein { from { opacity: 0; transform: translate(-50%,-6px);} to { opacity:1; transform: translate(-50%,0);} }
+
+    /* ===== 设置面板（模态弹窗） ===== */
+    .settings-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 专属居中淡入：不带 translate 偏移，避免从左侧飞入/回弹 */
+    .settings-overlay.show { display: flex; animation: overlayFade 0.18s ease-out; }
+    @keyframes overlayFade { from { opacity: 0; } to { opacity: 1; } }
+    .settings-panel {
+      width: 90%; max-width: 520px;
+      max-height: 80vh;
+      /* 不透明实体背景，与 pi-web 基础色调统一（不模糊、不透明） */
+      background: var(--tb-bg);
+      color: var(--tb-fg);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      animation: panelFade 0.16s ease-out;
+    }
+    @keyframes panelFade { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+    .settings-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .settings-header h3 { font-size: 16px; font-weight: 600; }
+    .settings-close {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--loader-muted);
+    }
+    .settings-close:hover { background: var(--tb-hover); color: var(--loader-fg); }
+    .settings-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .settings-section { margin-bottom: 22px; }
+    .settings-section:last-child { margin-bottom: 0; }
+    .settings-section-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--loader-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .setting-item:last-child { border-bottom: none; }
+    .setting-label { font-size: 13px; flex: 1; }
+    .setting-label .sub { font-size: 11.5px; color: var(--loader-muted); margin-top: 2px; }
+    .setting-control { flex: none; }
+    .setting-input {
+      width: 220px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--tb-bg);
+      color: var(--loader-fg);
+      font-size: 12.5px;
+      outline: none;
+    }
+    .setting-input:focus { border-color: var(--primary); }
+    .setting-select {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--tb-bg);
+      color: var(--loader-fg);
+      font-size: 12.5px;
+      outline: none;
+      cursor: pointer;
+      min-width: 140px;
+    }
+    .setting-btn {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--tb-bg);
+      color: var(--loader-fg);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .setting-btn:hover { background: var(--tb-hover); }
+    .setting-btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .setting-btn.primary:hover { background: var(--primary-hover); }
+    .settings-footer {
+      padding: 14px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* ===== 首次启动引导 ===== */
+    .welcome-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--loader-bg);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .welcome-overlay.show { display: flex; }
+    .welcome-card {
+      width: 90%; max-width: 500px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 36px 32px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .welcome-card h2 { font-size: 22px; margin-bottom: 8px; }
+    .welcome-card p { color: var(--loader-muted); font-size: 13px; margin-bottom: 24px; line-height: 1.6; }
+    .welcome-step {
+      text-align: left;
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .welcome-step h4 { font-size: 13.5px; margin-bottom: 4px; }
+    .welcome-step p { font-size: 12px; margin-bottom: 8px; color: var(--loader-muted); }
+    .welcome-step-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ===== 关闭确认对话框 ===== */
+    .confirm-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .confirm-overlay.show { display: flex; }
+    .confirm-dialog {
+      width: 90%; max-width: 360px;
+      background: var(--card-bg);
+      color: var(--loader-fg);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .confirm-dialog h3 { font-size: 15px; margin-bottom: 6px; }
+    .confirm-dialog p { font-size: 12.5px; color: var(--loader-muted); margin-bottom: 18px; }
+    .confirm-options { display: flex; gap: 8px; justify-content: center; }
+    .confirm-options .btn { margin-top: 0; padding: 8px 18px; font-size: 12.5px; }
+
+    /* 更新进度浮层：居中的弹出式进度框（不占满顶栏） */
+    .update-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--loader-bg);
+      z-index: 2100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .update-overlay.show { display: flex; animation: overlayFade 0.18s ease-out; }
+    .update-box {
+      width: 92%; max-width: 360px;
+      background: var(--tb-bg);
+      color: var(--tb-fg);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      padding: 24px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: panelFade 0.16s ease-out;
+    }
+    .update-box .ub-title {
+      font-size: 15px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 4px;
+    }
+    .update-box .ub-spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(120,120,140,0.25);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .update-box .ub-step {
+      font-size: 12px; color: var(--loader-muted);
+      margin-bottom: 14px;
+    }
+    .update-box .ub-bar {
+      width: 100%; height: 6px;
+      background: var(--tb-hover);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .update-box .ub-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--primary-light));
+      border-radius: 3px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+    .update-box .ub-hint {
+      width: 100%;
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--loader-muted);
+      margin-top: 6px;
+    }
+    /* 更新记录滚动区（实时打印 pi / pi-web 更新运行日志） */
+    .update-box .ub-log {
+      width: 100%; max-height: 150px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 6px 8px;
+      background: rgba(0,0,0,0.16);
+      border-radius: 8px;
+      font: 11px/1.7 Consolas, Menlo, 'Courier New', monospace;
+      color: var(--loader-muted);
+      text-align: left;
+      display: none;
+      user-select: text;
+    }
+    .update-box .ub-log.show { display: block; }
+    .update-box .ub-log div { white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <!-- 顶部标题栏 -->
+  <div class="drag-bar">
+    <div class="drag-title" data-tauri-drag-region>
+      <span class="drag-icon"></span>
+      Pi Desktop
+    </div>
+    <div class="win-btns">
+      <span class="win-btn tool-btn" id="btn-restart" title="重启 Pi 服务">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/>
+          <polyline points="21 3 21 8 16 8"/>
+        </svg>
+      </span>
+      <span class="win-btn tool-btn" id="btn-open-dir" title="打开工作目录">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </span>
+      <span class="win-btn tool-btn" id="btn-settings" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </span>
+      <span class="win-btn" id="btn-min" title="最小化">
+        <svg viewBox="0 0 11 11"><line x1="1" y1="5.5" x2="10" y2="5.5" stroke="currentColor" stroke-width="1.1"/></svg>
+      </span>
+      <span class="win-btn" id="btn-max" title="最大化">
+        <svg viewBox="0 0 11 11"><rect x="1.5" y="1.5" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </span>
+      <span class="win-btn close" id="btn-close" title="关闭">
+        <svg viewBox="0 0 11 11"><line x1="1.5" y1="1.5" x2="9.5" y2="9.5" stroke="currentColor" stroke-width="1.1"/><line x1="9.5" y1="1.5" x2="1.5" y2="9.5" stroke="currentColor" stroke-width="1.1"/></svg>
+      </span>
+    </div>
+  </div>
+
+  <!-- 更新进度浮层：居中的弹出式进度框 -->
+  <div class="update-overlay" id="update-overlay">
+    <div class="update-box">
+      <div class="ub-title">
+        <span class="ub-spinner"></span>
+        <span id="ub-target">正在更新 Pi Web</span>
+      </div>
+      <div class="ub-step" id="ub-step">准备中...</div>
+      <div class="ub-bar"><div class="ub-fill" id="ub-fill"></div></div>
+      <div class="ub-hint">
+        <span id="ub-detail">0%</span>
+        <span id="ub-counter"></span>
+      </div>
+      <div class="ub-log" id="ub-log"></div>
+    </div>
+  </div>
+
+  <!-- 加载视图 -->
+  <div class="main" id="loader-view">
+    <div class="pi-icon"></div>
+    <div class="app-name">Pi Desktop</div>
+    <div class="app-subtitle">智能编程助手</div>
+
+    <div class="panel" id="panel-checking">
+      <div class="spinner"></div>
+      <div class="status-text" id="checking-text">正在检查运行环境...</div>
+      <div class="status-hint" id="checking-hint"></div>
+      <div class="progress-wrap" id="checking-progress" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-info">
+          <span id="progress-percent">0%</span>
+          <span id="progress-speed">0 KB/s</span>
+        </div>
+        <div class="progress-source" id="progress-source"></div>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="panel-error">
+      <div class="status-text status-err" id="error-text">发生错误</div>
+      <button class="btn" id="btn-error-retry">重试</button>
+    </div>
+
+    <div class="panel hidden" id="panel-setup">
+      <div class="status-text">🔧 首次运行环境准备</div>
+      <div class="status-hint setup-list" id="setup-list"></div>
+      <button class="btn" id="btn-setup">去安装</button>
+      <button class="btn secondary" id="btn-setup-retry">重新检测</button>
+    </div>
+
+    <div class="foot">Pi Desktop · Tauri</div>
+  </div>
+
+  <!-- pi-web 内容 -->
+  <iframe id="frame" src="about:blank" style="display:none"></iframe>
+
+  <!-- 设置面板 -->
+  <div class="settings-overlay" id="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-header">
+        <h3>⚙️ 设置</h3>
+        <span class="settings-close" id="settings-close">✕</span>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <div class="settings-section-title">常规</div>
+          <div class="setting-item">
+            <div class="setting-label">
+              关闭按钮行为
+              <div class="sub">点击窗口右上角关闭按钮时</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="close-behavior-select">
+                <option value="tray">最小化到托盘</option>
+                <option value="quit">直接退出应用</option>
+                <option value="ask">每次询问</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">下载源</div>
+          <div class="setting-item">
+            <div class="setting-label">
+              npm 镜像（安装 pi-web / pi-coding-agent 用）
+              <div class="sub">默认国内 npmmirror，可在下方切回官方/自定义</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="npm-mirror-select">
+                <option value="">官方 npmjs</option>
+                <option value="https://registry.npmmirror.com">国内 npmmirror</option>
+                <option value="custom">自定义...</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-item hidden" id="npm-custom-wrap">
+            <div class="setting-label">自定义 npm 镜像地址</div>
+            <div class="setting-control">
+              <input type="text" class="setting-input" id="npm-mirror-input" placeholder="https://registry.npmmirror.com">
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              Node.js 下载镜像
+              <div class="sub">默认国内 npmmirror，失败自动切官方源</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="node-mirror-select">
+                <option value="">官方 nodejs.org</option>
+                <option value="https://npmmirror.com/mirrors/node">国内 npmmirror</option>
+                <option value="custom">自定义...</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-item hidden" id="node-custom-wrap">
+            <div class="setting-label">自定义 Node.js 镜像地址</div>
+            <div class="setting-control">
+              <input type="text" class="setting-input" id="node-mirror-input" placeholder="https://npmmirror.com/mirrors/node">
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              GitHub 下载代理（Git 等）
+              <div class="sub">默认 ghfast.top 代理加速，可切官方/自定义</div>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="gh-proxy-select">
+                <option value="">GitHub 官方</option>
+                <option value="https://ghfast.top">代理 ghfast.top</option>
+                <option value="https://gh-proxy.com">代理 gh-proxy.com</option>
+                <option value="custom">自定义...</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-item hidden" id="gh-custom-wrap">
+            <div class="setting-label">自定义 GitHub 代理地址</div>
+            <div class="setting-control">
+              <input type="text" class="setting-input" id="gh-proxy-input" placeholder="https://ghfast.top">
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">关于</div>
+          <div class="setting-item">
+            <div class="setting-label">
+              Pi Web
+              <div class="sub" id="piweb-version-display">加载中...</div>
+            </div>
+            <div class="setting-control">
+              <button class="setting-btn primary" id="update-piweb-btn">更新</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              Pi Coding Agent
+              <div class="sub" id="agent-version-display">加载中...</div>
+            </div>
+            <div class="setting-control">
+              <button class="setting-btn primary" id="update-agent-btn">更新</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              配置文件目录
+              <div class="sub" id="config-dir-display">加载中...</div>
+            </div>
+            <div class="setting-control">
+              <button class="setting-btn" id="open-config-btn">打开目录</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-footer">
+        <button class="btn secondary" id="settings-cancel">取消</button>
+        <button class="btn primary" id="settings-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 关闭确认对话框 -->
+  <div class="confirm-overlay" id="close-confirm">
+    <div class="confirm-dialog">
+      <h3>关闭 Pi Desktop？</h3>
+      <p>选择关闭到托盘还是直接退出应用</p>
+      <div class="confirm-options">
+        <button class="btn secondary" id="confirm-tray">最小化到托盘</button>
+        <button class="btn" id="confirm-quit">退出应用</button>
+        <button class="btn secondary" id="confirm-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+    const { getCurrentWindow } = window.__TAURI__.window;
+    const { listen } = window.__TAURI__.event;
+
+    // ---- pi-web 桥消息 ----
+    let piwebCurrentPath = '/';  // 记录 pi-web 当前内部路由（SPA 路由）
+    let piwebCurrentCwd = '';    // 记录 pi-web 当前工作目录（用于「打开工作目录」按钮）
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.__piDesktopBridge !== true) return;
+      if (d.type === 'theme') {
+        // pi-web 支持 light/dark/mist/pine/rose 多种主题，直接透传
+        document.documentElement.setAttribute('data-shell-theme', String(d.data || 'light'));
+      } else if (d.type === 'openUrl') {
+        invoke('open_history_window', { url: String(d.data) }).catch((err) => {
+          console.error('open_history_window failed:', err);
+        });
+      } else if (d.type === 'openExternal') {
+        // pi-web 里的外部链接（如 pi.dev/packages）→ 用系统默认浏览器打开
+        invoke('open_url', { url: String(d.data) }).catch((err) => {
+          console.error('open_url failed:', err);
+        });
+      } else if (d.type === 'route') {
+        // pi-web 内部路由变化 → 记录下来，重启/更新后恢复
+        // 只存 pathname+search+hash，不带 origin（因为 origin 可能变端口）
+        piwebCurrentPath = d.data || '/';
+      } else if (d.type === 'cwd') {
+        // pi-web 当前工作目录变化 → 更新「打开工作目录」按钮状态
+        piwebCurrentCwd = (d.data || '').trim();
+        updateOpenDirButton();
+      }
+    });
+
+    // 更新「打开工作目录」按钮状态：有目录时可点击，无目录时置灰
+    function updateOpenDirButton() {
+      const btn = $('btn-open-dir');
+      if (!btn) return;
+      const hasCwd = piwebCurrentCwd.length > 0;
+      btn.style.opacity = hasCwd ? '0.85' : '0.3';
+      btn.style.cursor = hasCwd ? 'pointer' : 'not-allowed';
+      btn.title = hasCwd ? ('打开工作目录: ' + piwebCurrentCwd) : '打开工作目录（当前未选择目录）';
+    }
+
+    const win = getCurrentWindow();
+    const $ = (id) => document.getElementById(id);
+
+    let baseUrl = '';
+    let appSettings = null;
+
+    // ---- 更新浮层状态 ----
+    let updateRun = null;              // { kind:'install'|'update', target, targetName }
+    let settingsUpdateTriggered = false; // 是否由设置面板触发（完成后回到设置页刷新版本）
+
+    function hideUpdateOverlay() {
+      $('update-overlay').classList.remove('show');
+      $('ub-fill').style.width = '0%';
+      updateRun = null;
+    }
+
+    // 清空更新浮层日志区（新一轮开始时调用）
+    function clearUpdateLog() {
+      const area = $('ub-log');
+      if (!area) return;
+      area.innerHTML = '';
+      area.classList.remove('show');
+    }
+
+    // 向更新浮层追加一行运行记录（带本地时间）
+    function showUpdateLog(line) {
+      const area = $('ub-log');
+      if (!area) return;
+      area.classList.add('show');
+      const t = new Date().toTimeString().slice(0, 8);
+      const div = document.createElement('div');
+      div.textContent = '[' + t + '] ' + line;
+      area.appendChild(div);
+      while (area.childElementCount > 80) area.removeChild(area.firstChild);
+      area.scrollTop = area.scrollHeight;
+    }
+
+    // 重启/更新后恢复用户所在页面（pi-web SPA 路由；不再附加默认目录 ?cwd=）
+    function preservedTargetUrl(base) {
+      return piwebCurrentPath || '/';
+    }
+
+    // ---- 窗口控制 ----
+    $('btn-min').addEventListener('click', () => win.minimize());
+    $('btn-max').addEventListener('click', async () => {
+      if (await win.isMaximized()) await win.unmaximize(); else await win.maximize();
+    });
+    $('btn-close').addEventListener('click', async () => {
+      // 根据设置决定关闭行为
+      const s = await getSettings();
+      if (s.close_behavior === 'tray') {
+        win.hide();
+      } else if (s.close_behavior === 'quit') {
+        invoke('stop_piweb').finally(() => {
+          win.close();
+        });
+      } else {
+        $('close-confirm').classList.add('show');
+      }
+    });
+
+    // 关闭确认按钮
+    $('confirm-tray').addEventListener('click', () => {
+      $('close-confirm').classList.remove('show');
+      win.hide();
+    });
+    $('confirm-quit').addEventListener('click', () => {
+      $('close-confirm').classList.remove('show');
+      invoke('stop_piweb').finally(() => {
+        win.close();
+      });
+    });
+    $('confirm-cancel').addEventListener('click', () => {
+      $('close-confirm').classList.remove('show');
+    });
+
+    // 来自后端的关闭确认请求（窗口 CloseRequested 事件触发 ask 模式）
+    listen('request-close-confirm', () => {
+      $('close-confirm').classList.add('show');
+    });
+
+    // ---- 重启按钮 ----
+    $('btn-restart').addEventListener('click', async () => {
+      if (!confirm('确定要重启 Pi 服务吗？当前会话会重新加载。')) return;
+      toast('🔄 正在重启 Pi 服务...');
+      try {
+        const url = await invoke('restart_piweb');
+        baseUrl = url;
+        // 重启后恢复用户当前所在页面
+        const target = url + preservedTargetUrl(url);
+        loadFrame(target);
+        toast('✅ Pi 服务已重启');
+      } catch (e) {
+        toast('❌ 重启失败: ' + e);
+      }
+    });
+
+    // ---- 设置面板 ----
+    $('btn-open-dir').addEventListener('click', () => {
+      if (!piwebCurrentCwd) { toast('当前未选择工作目录'); return; }
+      invoke('open_dir', { path: piwebCurrentCwd }).then((ok) => {
+        if (!ok) toast('❌ 目录不存在或无法打开');
+      }).catch((e) => {
+        toast('❌ 打开目录失败: ' + e);
+      });
+    });
+    // 初始状态：按钮置灰（等 pi-web 加载后上报 cwd 再启用）
+    updateOpenDirButton();
+    $('btn-settings').addEventListener('click', openSettings);
+    $('settings-close').addEventListener('click', closeSettings);
+    $('settings-cancel').addEventListener('click', closeSettings);
+    $('settings-save').addEventListener('click', saveSettings);
+
+    // 镜像下拉切换：custom 时显示自定义输入框
+    wireMirrorSelect('npm-mirror-select', 'npm-custom-wrap');
+    wireMirrorSelect('node-mirror-select', 'node-custom-wrap');
+    wireMirrorSelect('gh-proxy-select', 'gh-custom-wrap');
+
+    // 更新按钮：在设置面板里直接触发更新
+    $('update-piweb-btn').addEventListener('click', () => runUpdate('pi-web'));
+    $('update-agent-btn').addEventListener('click', () => runUpdate('pi-coding-agent'));
+
+    // 执行更新（后台执行：先备份 → 停服务 → 更新 → 立即回报 → 自动重启；进度/记录走浮层事件）
+    async function runUpdate(target) {
+      closeSettings();
+      settingsUpdateTriggered = true;
+      // 立即切到“正在更新 X”全屏态：pi-web 停止瞬间不会露出报错页
+      const targetName = target === 'pi-web' ? 'Pi Web' : 'Pi Coding Agent';
+      updateRun = { kind: 'update', target: target, targetName: targetName };
+      $('ub-target').textContent = '正在更新 ' + targetName;
+      $('ub-step').textContent = '准备中（先备份，再停服务，然后安装最新版）...';
+      $('ub-fill').style.width = '0%';
+      $('ub-detail').textContent = '0%';
+      $('ub-counter').textContent = '';
+      clearUpdateLog();
+      $('update-overlay').classList.add('show');
+      try {
+        await invoke('update_component', { target });
+      } catch (e) {
+        settingsUpdateTriggered = false;
+        hideUpdateOverlay();
+        toast('❌ 更新失败: ' + e);
+      }
+    }
+
+    async function openSettings() {
+      await loadSettingsToPanel();
+      $('settings-overlay').classList.add('show');
+    }
+
+    function closeSettings() {
+      $('settings-overlay').classList.remove('show');
+    }
+
+    // 镜像选择辅助：根据存储值设置 select + 是否显示自定义输入
+    function setupMirrorSelect(selectId, inputWrapId, inputId, storedVal) {
+      const sel = $(selectId);
+      const wrap = $(inputWrapId);
+      const input = $(inputId);
+      if (!sel || !wrap || !input) return;
+      input.value = storedVal || '';
+      // 判断存储值属于哪个预设
+      let matched = false;
+      for (const opt of sel.options) {
+        if (opt.value && opt.value !== 'custom' && opt.value === storedVal) {
+          sel.value = opt.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        if (storedVal) {
+          sel.value = 'custom';
+          wrap.classList.remove('hidden');
+        } else {
+          sel.value = '';
+          wrap.classList.add('hidden');
+        }
+      } else {
+        wrap.classList.add('hidden');
+      }
+    }
+
+    async function loadSettingsToPanel() {
+      try {
+        const s = await invoke('get_settings');
+        appSettings = s;
+        $('close-behavior-select').value = s.close_behavior || 'tray';
+        // 镜像下拉
+        setupMirrorSelect('npm-mirror-select', 'npm-custom-wrap', 'npm-mirror-input', s.npm_mirror || '');
+        setupMirrorSelect('node-mirror-select', 'node-custom-wrap', 'node-mirror-input', s.node_mirror || '');
+        setupMirrorSelect('gh-proxy-select', 'gh-custom-wrap', 'gh-proxy-input', s.gh_proxy || '');
+      } catch (e) {
+        console.error('加载设置失败:', e);
+      }
+      try {
+        const dir = await invoke('get_config_dir');
+        $('config-dir-display').textContent = dir;
+      } catch {}
+      loadVersions();
+    }
+
+    // 加载已安装版本到设置面板
+    async function loadVersions() {
+      try {
+        const v = await invoke('get_installed_versions');
+        const pw = $('piweb-version-display');
+        const ag = $('agent-version-display');
+        if (pw) pw.textContent = v.pi_web ? ('当前版本 v' + v.pi_web) : '未安装';
+        if (ag) ag.textContent = v.pi_coding_agent ? ('当前版本 v' + v.pi_coding_agent) : '未安装';
+        // 未安装时禁用更新按钮
+        const upw = $('update-piweb-btn');
+        const uag = $('update-agent-btn');
+        if (upw) upw.disabled = !v.pi_web;
+        if (uag) uag.disabled = !v.pi_coding_agent;
+      } catch {}
+    }
+
+    // 镜像 select 变化：custom 显示输入框
+    function wireMirrorSelect(selectId, wrapId) {
+      const sel = $(selectId);
+      const wrap = $(wrapId);
+      if (!sel || !wrap) return;
+      sel.addEventListener('change', () => {
+        if (sel.value === 'custom') {
+          wrap.classList.remove('hidden');
+        } else {
+          wrap.classList.add('hidden');
+        }
+      });
+    }
+
+    async function saveSettings() {
+      try {
+        // 从下拉选择 + 自定义输入解析最终 mirror 值
+        function resolveMirror(selectId, inputId) {
+          const sel = $(selectId);
+          const input = $(inputId);
+          if (!sel) return '';
+          if (sel.value === 'custom') {
+            return (input && input.value.trim()) || '';
+          }
+          return sel.value;
+        }
+        // 基于后端当前设置合并改动，一次 set_settings 提交（替代多次 update_setting 往返）
+        const base = await invoke('get_settings');
+        const updates = {
+          close_behavior: $('close-behavior-select').value,
+          node_mirror: resolveMirror('node-mirror-select', 'node-mirror-input'),
+          npm_mirror: resolveMirror('npm-mirror-select', 'npm-mirror-input'),
+          gh_proxy: resolveMirror('gh-proxy-select', 'gh-proxy-input'),
+        };
+        appSettings = await invoke('set_settings', { settings: Object.assign({}, base, updates) });
+        toast('✅ 设置已保存');
+        closeSettings();
+      } catch (e) {
+        toast('❌ 保存失败: ' + e);
+      }
+    }
+
+    $('open-config-btn').addEventListener('click', () => {
+      invoke('open_config_dir');
+    });
+
+    // ---- 工具函数 ----
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(window.__toastT);
+      window.__toastT = setTimeout(() => el.classList.remove('show'), 4500);
+    }
+
+    function showPanel(name) {
+      ['checking','error','setup'].forEach(p =>
+        $('panel-' + p).classList.toggle('hidden', p !== name));
+    }
+
+    async function getSettings() {
+      if (!appSettings) {
+        try {
+          appSettings = await invoke('get_settings');
+        } catch {
+          appSettings = { close_behavior: 'ask' };
+        }
+      }
+      return appSettings;
+    }
+
+    // ---- 下载进度显示 ----
+    function showProgress(show) {
+      $('checking-progress').style.display = show ? 'block' : 'none';
+    }
+
+    function updateProgress(data) {
+      const fill = $('progress-fill');
+      const pct = $('progress-percent');
+      const spd = $('progress-speed');
+      const src = $('progress-source');
+      const p = Math.max(0, Math.min(100, data.percent || 0));
+      fill.style.width = p + '%';
+      pct.textContent = p.toFixed(1) + '%';
+      // 速度 + 已下载/总大小：每次整串重建，避免残留上一次的文本
+      let speedText = '';
+      if (data.speed_kb_s > 0) {
+        speedText = data.speed_kb_s > 1024
+          ? (data.speed_kb_s / 1024).toFixed(2) + ' MB/s'
+          : data.speed_kb_s.toFixed(0) + ' KB/s';
+      }
+      if (data.downloaded_mb > 0 && data.total_mb > 0) {
+        if (speedText) speedText += ' · ';
+        speedText += data.downloaded_mb.toFixed(1) + ' / ' + data.total_mb.toFixed(1) + ' MB';
+      }
+      spd.textContent = speedText;
+      if (data.source) {
+        src.textContent = '📡 ' + data.source;
+      }
+      if (data.message) {
+        $('checking-hint').textContent = data.message;
+      }
+    }
+
+    // 监听下载进度事件
+    listen('download-progress', (ev) => {
+      showProgress(true);
+      updateProgress(ev.payload);
+    });
+
+    // 监听安装/更新进度事件
+    listen('install-progress', (ev) => {
+      const d = ev.payload;
+      if (d.target !== 'pi-web' && d.target !== 'pi-coding-agent') return;
+
+      const overlay = $('update-overlay');
+      const fill = $('ub-fill');
+      const targetEl = $('ub-target');
+      const stepEl = $('ub-step');
+      const detailEl = $('ub-detail');
+      const counterEl = $('ub-counter');
+
+      const targetName = d.target === 'pi-web' ? 'Pi Web' : 'Pi Coding Agent';
+      const step = d.step || 0;
+      const total = d.total_steps || 0;
+      const isEnd = d.stage === 'done' || d.stage === 'rolled_back' || d.stage === 'error';
+
+      // 新一轮开始：确定类型（安装/更新）并清空上轮记录
+      if (!overlay.classList.contains('show')) {
+        updateRun = {
+          kind: d.stage === 'installing' ? 'install' : 'update',
+          target: d.target,
+          targetName: targetName,
+        };
+        clearUpdateLog();
+      }
+
+      const action = (updateRun && updateRun.kind === 'install') ? '正在安装' : '正在更新';
+      // 标题 + 步骤计数（1/3 形式）
+      targetEl.textContent = action + ' ' + targetName;
+      stepEl.textContent = d.message || '准备中...';
+
+      // 右上角步骤计数："第 2/3 步 · 还剩 1 步"
+      if (total > 0 && step > 0 && step <= total) {
+        const remain = total - step;
+        counterEl.textContent = '第 ' + step + '/' + total + ' 步' + (remain > 0 ? ' · 还剩 ' + remain + ' 步' : '');
+      } else {
+        counterEl.textContent = '';
+      }
+
+      if (isEnd) {
+        // 完成/失败/回滚
+        if (d.stage === 'done') {
+          fill.style.width = '100%';
+          detailEl.textContent = '已完成';
+          stepEl.textContent = d.message || ((updateRun && updateRun.kind === 'install') ? '安装完成' : '更新成功');
+          counterEl.textContent = '第 ' + (total||3) + '/' + (total||3) + ' 步';
+        } else if (d.stage === 'rolled_back') {
+          fill.style.width = '100%';
+          detailEl.textContent = '已回滚';
+          stepEl.textContent = d.message || '更新失败，已回滚';
+          counterEl.textContent = '';
+        } else {
+          detailEl.textContent = '失败';
+          stepEl.textContent = d.message || '更新失败';
+        }
+        if (updateRun && updateRun.kind === 'install') {
+          // 安装流程（首次安装）：短暂显示后自动关闭
+          setTimeout(() => hideUpdateOverlay(), 2000);
+        }
+        // 更新流程：保持浮层，由 pi-update-result / pi-update-restarted 决定何时关闭
+      } else {
+        overlay.classList.add('show');
+        const p = Math.max(0, Math.min(100, d.percent || 0));
+        fill.style.width = p + '%';
+        detailEl.textContent = Math.round(p) + '%';
+      }
+    });
+
+    // 更新记录：pi / pi-web 更新运行日志实时打印到浮层
+    listen('update-log', (ev) => {
+      const d = ev.payload || {};
+      if (d.line) showUpdateLog(d.line);
+    });
+
+    // 监听 pi-web 异常重启
+    listen('piweb-restarted', (ev) => {
+      toast('⚠️ Pi Web 意外退出，已自动重启');
+      if (ev.payload && ev.payload.url) {
+        baseUrl = ev.payload.url;
+        // 重启后恢复用户当前所在页面（保留其 SPA 路由）
+        loadFrame(baseUrl + preservedTargetUrl(baseUrl));
+      }
+    });
+
+    // ---- 主启动流程 ----
+    async function bootstrap() {
+      await getSettings();
+
+      showPanel('checking');
+      $('checking-text').textContent = '正在检测运行环境...';
+      $('checking-hint').textContent = '';
+      showProgress(false);
+
+      let env;
+      try { env = await invoke('check_environment'); }
+      catch (e) { showError('检测环境失败: ' + e); return; }
+
+      if (env.needs_install) { showSetup(env); return; }
+
+      $('checking-text').textContent = '正在启动智能体服务...';
+      $('checking-hint').textContent = '';
+      try {
+        const url = await invoke('start_piweb');
+        baseUrl = url;
+        // 直接打开 pi-web 首页（不再自动附加默认目录 ?cwd=，避免无会话目录的异常跳转）
+        loadFrame(url);
+      } catch (e) {
+        showError('启动失败：' + e);
+      }
+    }
+
+    function showSetup(env) {
+      const items = [];
+      if (!env.node_meets_req) items.push('安装 Node.js（自托管，随应用存放在安装目录）');
+      if (!env.git_installed) items.push('安装 Git（含 Git Bash，随应用存放在安装目录）');
+      if (!env.pi_web_installed) items.push('安装 Pi Web');
+      if (!env.pi_coding_agent_installed) items.push('安装 Pi Coding Agent');
+      $('setup-list').innerHTML = items.map(x => '<div>· ' + x + '</div>').join('');
+      showPanel('setup');
+    }
+
+    async function runSetup() {
+      const btn = $('btn-setup');
+      btn.disabled = true;
+      btn.textContent = '正在安装...';
+      showPanel('checking');
+      showProgress(true);
+
+      let env;
+      try { env = await invoke('check_environment'); } catch { env = null; }
+
+      if (!env || !env.node_meets_req) {
+        $('checking-text').textContent = '正在安装 Node.js...';
+        const r = await invoke('install_node');
+        if (!r.success) {
+          showError('安装 Node.js 失败：' + r.message);
+          btn.disabled = false; btn.textContent = '去安装'; return;
+        }
+      }
+
+      if (!env || !env.git_installed) {
+        $('checking-text').textContent = '正在安装 Git...';
+        const g = await invoke('install_git');
+        if (!g.success) {
+          showError('安装 Git 失败：' + g.message);
+          btn.disabled = false; btn.textContent = '去安装'; return;
+        }
+      }
+
+      $('checking-text').textContent = '正在安装 Pi Web / Pi Coding Agent...';
+      $('checking-hint').textContent = '首次安装需要下载依赖，请耐心等待';
+      const res = await invoke('install_piweb');
+      if (!res.success) {
+        showError('安装 Pi Web 失败：' + res.message);
+        btn.disabled = false; btn.textContent = '去安装'; return;
+      }
+
+      btn.disabled = false; btn.textContent = '去安装';
+
+      bootstrap();
+    }
+
+    function loadFrame(url) {
+      const frame = $('frame');
+      frame.src = url;
+      frame.style.display = 'block';
+      frame.onload = () => {
+        $('loader-view').style.display = 'none';
+      };
+    }
+
+    function showError(msg) {
+      $('error-text').textContent = msg;
+      showPanel('error');
+    }
+
+    // ---- 按钮 ----
+    $('btn-error-retry').onclick = bootstrap;
+    $('btn-setup').onclick = runSetup;
+    $('btn-setup-retry').onclick = bootstrap;
+
+    // ---- 更新结果事件（托盘 / 设置面板共用） ----
+    // 更新一完成就立刻弹"更新成功"，不再等 pi-web 重启完成
+    listen('pi-update-result', (ev) => {
+      const r = ev.payload || {};
+      const overlay = $('update-overlay');
+      const targetEl = $('ub-target');
+      const stepEl = $('ub-step');
+      const detailEl = $('ub-detail');
+      const counterEl = $('ub-counter');
+
+      toast((r.ok ? '✅ ' : '❌ ') + r.message);
+      showUpdateLog((r.ok ? '✅ ' : '❌ ') + r.message);
+
+      if (r.pending_restart) {
+        // 服务重启中：浮层保持显示“正在重启服务”
+        const name = r.target === 'pi-coding-agent' ? 'Pi Coding Agent' : 'Pi Web';
+        if (targetEl) targetEl.textContent = r.ok ? ('正在重启 ' + name + '…') : ('正在恢复 ' + name + '…');
+        if (stepEl) stepEl.textContent = r.ok ? '更新成功，正在重启服务…' : '更新未完成，正在恢复服务…';
+        if (detailEl) detailEl.textContent = r.ok ? '✅' : '↻';
+        if (counterEl) counterEl.textContent = '';
+        overlay.classList.add('show');
+      } else {
+        // 服务原本没在运行：提示后稍候关闭浮层
+        if (overlay.classList.contains('show')) {
+          setTimeout(() => hideUpdateOverlay(), 1500);
+        }
+        if (settingsUpdateTriggered) {
+          settingsUpdateTriggered = false;
+          if (r.ok) setTimeout(() => openSettings(), 1800);
+        }
+      }
+    });
+
+    // 更新后服务重启完成事件：静默刷新页面（成功提示已在 result 事件即时弹出）
+    listen('pi-update-restarted', (ev) => {
+      const r = ev.payload || {};
+      hideUpdateOverlay();
+      if (r.ok && r.url) {
+        baseUrl = r.url;
+        // 始终加载：若此前停在错误页/加载页，也一并恢复到应用（更新完成后自动恢复启动）
+        loadFrame(r.url + preservedTargetUrl(r.url));
+      } else {
+        toast('❌ ' + (r.message || '服务重启失败，请重启应用'));
+      }
+      if (settingsUpdateTriggered) {
+        settingsUpdateTriggered = false;
+        if (r.ok) setTimeout(() => openSettings(), 600);
+      }
+    });
+
+    // ---- 启动 ----
+    bootstrap();
+  </script>
+</body>
+</html>

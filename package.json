@@ -1,0 +1,16 @@
+{
+  "name": "pi-desktop",
+  "version": "1.0.0",
+  "description": "Pi Coding Agent Desktop App (Tauri)",
+  "author": "Pi Desktop",
+  "license": "MIT",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:installer": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}
